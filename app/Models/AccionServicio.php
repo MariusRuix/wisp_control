@@ -14,7 +14,7 @@ final class AccionServicio extends Model
     protected $table = 'acciones_servicio';
 
     protected $fillable = [
-        'onu_id', 'user_id', 'tipo', 'estado', 'motivo', 'error', 'intentos', 'ejecutada_en',
+        'onu_id', 'user_id', 'tipo', 'estado', 'motivo', 'automatica', 'error', 'intentos', 'ejecutada_en',
     ];
 
     protected function casts(): array
@@ -23,6 +23,7 @@ final class AccionServicio extends Model
             'tipo' => TipoAccion::class,
             'estado' => EstadoAccion::class,
             'ejecutada_en' => 'datetime',
+            'automatica' => 'boolean',
         ];
     }
 

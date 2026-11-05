@@ -34,7 +34,11 @@
             <tr>
                 <td class="whitespace-nowrap px-3 py-2 text-xs text-slate-500">{{ $a->created_at->format('d/m/Y H:i') }}</td>
                 <td class="px-3 py-2">
-                    <div class="font-medium">{{ $a->onu?->nombre ?? '—' }}</div>
+                    @if ($a->onu?->cliente)
+                        <a href="{{ route('clientes.show', $a->onu->cliente) }}" class="font-medium text-blue-700 hover:underline">{{ $a->onu->cliente->nombre }}</a>
+                    @else
+                        <div class="font-medium">{{ $a->onu?->nombre ?? '—' }}</div>
+                    @endif
                     <div class="font-mono text-xs text-slate-400">{{ $a->onu?->sn }}</div>
                 </td>
                 <td class="px-3 py-2">{{ $a->tipo->etiqueta() }}</td>
@@ -42,7 +46,10 @@
                     <span class="rounded-full px-2 py-0.5 text-xs {{ $a->estado->color() }}">{{ $a->estado->etiqueta() }}</span>
                     @if ($a->intentos > 1)<span class="text-xs text-slate-400">({{ $a->intentos }} intentos)</span>@endif
                 </td>
-                <td class="px-3 py-2 text-xs">{{ $a->usuario?->name ?? 'Sistema' }}</td>
+                <td class="px-3 py-2 text-xs">
+                    {{ $a->usuario?->name ?? 'Sistema' }}
+                    @if ($a->automatica)<span class="ml-1 rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800">AUTO</span>@endif
+                </td>
                 <td class="px-3 py-2 text-xs">
                     <div>{{ $a->motivo }}</div>
                     @if ($a->error)<div class="text-red-700">{{ $a->error }}</div>@endif
@@ -55,5 +62,5 @@
     </table>
 </div>
 
-<div class="mt-4">{{ $acciones->links() }}</div>
+@include('partials.paginacion', ['p' => $acciones])
 @endsection

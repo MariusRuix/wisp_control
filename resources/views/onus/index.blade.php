@@ -1,23 +1,30 @@
 @extends('layouts.app')
-@section('titulo', 'Clientes')
+@section('titulo', 'ONUs')
 
 @section('contenido')
 <div class="mb-5 flex flex-wrap items-end justify-between gap-4">
     <div>
-        <h1 class="text-xl font-semibold">Clientes</h1>
+        <h1 class="text-xl font-semibold">ONUs (SmartOLT)</h1>
         <p class="text-sm text-slate-500">
             {{ number_format($totales['todos']) }} ONUs ·
-            <span class="text-red-700">{{ number_format($totales['cortados']) }} cortadas</span>
+            <span class="text-red-700">{{ number_format($totales['cortados']) }} cortadas</span> ·
+            {{ number_format($totales['sinCliente']) }} sin cliente
+            @if ($totales['eliminadas'] > 0)
+                · <a href="{{ route('onus.index', ['estado' => 'eliminadas']) }}" class="text-amber-700 hover:underline">{{ $totales['eliminadas'] }} ya no existen en SmartOLT</a>
+            @endif
         </p>
     </div>
 
     <form method="GET" class="flex flex-wrap gap-2">
-        <input type="search" name="q" value="{{ request('q') }}" placeholder="Nombre, SN, dirección, ID…"
+        <input type="search" name="q" value="{{ request('q') }}" placeholder="Nombre, cliente, SN, dirección, ID…"
                class="w-64 rounded-md border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
         <select name="estado" class="rounded-md border px-3 py-2 text-sm">
             <option value="">Todos</option>
             <option value="activos" @selected(request('estado') === 'activos')>Activos</option>
             <option value="cortados" @selected(request('estado') === 'cortados')>Cortados</option>
+            <option value="problema" @selected(request('estado') === 'problema')>Con problema de red</option>
+            <option value="sin_cliente" @selected(request('estado') === 'sin_cliente')>Sin cliente en el panel</option>
+            <option value="eliminadas" @selected(request('estado') === 'eliminadas')>Ya no existen en SmartOLT</option>
         </select>
         @if ($zonas->isNotEmpty())
             <select name="zona" class="rounded-md border px-3 py-2 text-sm">
@@ -31,6 +38,7 @@
     </form>
 </div>
 
+@can('cortar-masivo')
 {{-- Formulario de acciones masivas: los checkboxes de la tabla apuntan aquí con form="lote" --}}
 <form id="lote" method="POST" action="{{ route('acciones.store') }}"
       class="mb-3 flex flex-wrap items-center gap-2 rounded-lg border bg-white px-4 py-3 text-sm"
@@ -42,13 +50,15 @@
     <button name="tipo" value="cortar" class="rounded-md bg-red-600 px-3 py-1.5 font-medium text-white hover:bg-red-700">Cortar seleccionados</button>
     <button name="tipo" value="reconectar" class="rounded-md bg-emerald-600 px-3 py-1.5 font-medium text-white hover:bg-emerald-700">Reconectar seleccionados</button>
 </form>
+@endcan
 
 <div class="overflow-x-auto rounded-lg border bg-white">
     <table class="min-w-full text-sm">
         <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
         <tr>
-            <th class="px-3 py-2"><input type="checkbox" id="todos" aria-label="Seleccionar todos"></th>
-            <th class="px-3 py-2">Cliente</th>
+            <th class="px-3 py-2">@can('cortar-masivo')<input type="checkbox" id="todos" aria-label="Seleccionar todos">@endcan</th>
+            <th class="px-3 py-2">ONU en SmartOLT</th>
+            <th class="px-3 py-2">Cliente del panel</th>
             <th class="px-3 py-2">SN / ID</th>
             <th class="px-3 py-2">Zona / OLT</th>
             <th class="px-3 py-2">Red</th>
@@ -59,15 +69,25 @@
         <tbody class="divide-y">
         @forelse ($onus as $onu)
             @php($cortada = $onu->estaCortada())
-            <tr class="{{ $cortada ? 'bg-red-50/40' : '' }}">
+            @php($existe = $onu->existeEnSmartOlt())
+            <tr @class(['bg-red-50/40' => $cortada && $existe, 'bg-amber-50/60 text-slate-500' => ! $existe])>
                 <td class="px-3 py-2">
-                    <input type="checkbox" name="onus[]" value="{{ $onu->id }}" form="lote" class="sel">
+                    @can('cortar-masivo')@if ($existe)<input type="checkbox" name="onus[]" value="{{ $onu->id }}" form="lote" class="sel">@endif @endcan
                 </td>
                 <td class="px-3 py-2">
                     <div class="font-medium">{{ $onu->nombre ?: '—' }}</div>
                     <div class="text-xs text-slate-500">{{ $onu->direccion }}</div>
                     @if ($onu->cliente_externo_id)
                         <div class="text-xs text-slate-400">Cliente #{{ $onu->cliente_externo_id }}</div>
+                    @endif
+                </td>
+                <td class="px-3 py-2">
+                    @if ($onu->cliente)
+                        <a href="{{ route('clientes.show', $onu->cliente) }}" class="font-medium text-blue-700 hover:underline">{{ $onu->cliente->nombre }}</a>
+                        @if ($onu->cliente->numero)<div class="text-xs text-slate-500">#{{ $onu->cliente->numero }}</div>@endif
+                        @if ($onu->cliente->trashed())<div class="text-xs text-slate-500">De baja</div>@endif
+                    @else
+                        <span class="text-xs text-slate-400">Sin cliente</span>
                     @endif
                 </td>
                 <td class="px-3 py-2 font-mono text-xs">
@@ -89,7 +109,10 @@
                     ])>{{ $red ?: 'N/D' }}</span>
                 </td>
                 <td class="px-3 py-2">
-                    @if ($onu->accionPendiente)
+                    @if (! $existe)
+                        <span class="whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"
+                              title="Desde {{ $onu->eliminada_en->format('d/m/Y H:i') }}">Ya no existe en SmartOLT</span>
+                    @elseif ($onu->accionPendiente)
                         <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
                             {{ $onu->accionPendiente->tipo->etiqueta() }} en cola…
                         </span>
@@ -100,7 +123,7 @@
                     @endif
                 </td>
                 <td class="px-3 py-2 text-right">
-                    @unless ($onu->accionPendiente)
+                    @unless ($onu->accionPendiente || ! $existe)
                         <form method="POST" action="{{ route('acciones.store') }}" class="inline"
                               onsubmit="return confirm({{ Js::from(($cortada ? '¿Reconectar' : '¿Cortar').' el servicio de '.($onu->nombre ?: $onu->sn).'?') }})">
                             @csrf
@@ -116,20 +139,21 @@
                 </td>
             </tr>
         @empty
-            <tr><td colspan="7" class="px-3 py-10 text-center text-slate-500">
-                No hay clientes. Ejecuta <code class="rounded bg-slate-100 px-1">php artisan smartolt:sincronizar</code>.
+            <tr><td colspan="8" class="px-3 py-10 text-center text-slate-500">
+                No hay ONUs en esta vista. Si es la primera vez, sincroniza desde Configuración › SmartOLT
+                o con <code class="rounded bg-slate-100 px-1">php artisan smartolt:sincronizar</code>.
             </td></tr>
         @endforelse
         </tbody>
     </table>
 </div>
 
-<div class="mt-4">{{ $onus->links() }}</div>
+@include('partials.paginacion', ['p' => $onus])
 
 <script>
     const casillas = () => [...document.querySelectorAll('.sel')];
-    const contar = () => document.getElementById('seleccionados').textContent = casillas().filter(c => c.checked).length;
-    document.getElementById('todos').addEventListener('change', e => { casillas().forEach(c => c.checked = e.target.checked); contar(); });
+    const contar = () => { const el = document.getElementById('seleccionados'); if (el) el.textContent = casillas().filter(c => c.checked).length; };
+    document.getElementById('todos')?.addEventListener('change', e => { casillas().forEach(c => c.checked = e.target.checked); contar(); });
     casillas().forEach(c => c.addEventListener('change', contar));
 
     function confirmarLote(e) {

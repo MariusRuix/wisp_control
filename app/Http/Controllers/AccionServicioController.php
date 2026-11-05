@@ -17,10 +17,10 @@ final class AccionServicioController extends Controller
     public function index(Request $request): View
     {
         $acciones = AccionServicio::query()
-            ->with(['onu', 'usuario'])
+            ->with(['onu.cliente', 'usuario'])
             ->when($request->filled('estado'), fn ($q) => $q->where('estado', $request->string('estado')->toString()))
             ->latest()
-            ->paginate(50)
+            ->paginate($this->porPagina($request))
             ->withQueryString();
 
         return view('bitacora.index', ['acciones' => $acciones]);

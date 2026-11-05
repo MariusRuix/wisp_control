@@ -48,7 +48,7 @@ final class CorteServicioTest extends TestCase
     {
         Http::fake(['demo.smartolt.com/api/onu/bulk_enable' => Http::response(['status' => false, 'error' => 'ONU no encontrada'], 400)]);
 
-        $usuario = User::factory()->create();
+        $usuario = User::factory()->admin()->create();
         $a = Onu::create(['external_id' => 'A', 'estado_admin' => 'Disabled']);
         $b = Onu::create(['external_id' => 'B', 'estado_admin' => 'Disabled']);
 

@@ -35,7 +35,7 @@ final class LoginController extends Controller
             ]);
         }
 
-        if (! Auth::attempt($datos, $request->boolean('recordar'))) {
+        if (! Auth::attempt([...$datos, 'activo' => true], $request->boolean('recordar'))) {
             RateLimiter::hit($llave, 60);
 
             throw ValidationException::withMessages(['email' => 'Credenciales incorrectas.']);
@@ -43,8 +43,9 @@ final class LoginController extends Controller
 
         RateLimiter::clear($llave);
         $request->session()->regenerate();
+        $request->user()->forceFill(['ultimo_acceso' => now()])->save();
 
-        return redirect()->intended(route('onus.index'));
+        return redirect()->intended(route('inicio'));
     }
 
     public function destroy(Request $request): RedirectResponse

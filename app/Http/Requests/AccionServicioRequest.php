@@ -10,9 +10,15 @@ use Illuminate\Validation\Rule;
 
 final class AccionServicioRequest extends FormRequest
 {
+    /** De uno en uno: cualquier operador. Varios a la vez: solo Administrador. */
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        $usuario = $this->user();
+        if ($usuario === null) {
+            return false;
+        }
+
+        return count((array) $this->input('onus', [])) <= 1 || $usuario->can('cortar-masivo');
     }
 
     /**

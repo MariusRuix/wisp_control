@@ -32,6 +32,8 @@ return [
         'bulk_enable' => '/api/onu/bulk_enable',
         'all_details' => '/api/onu/get_all_onus_details',
         'all_statuses' => '/api/onu/get_onus_statuses',
+        // Llamada ligera para "Probar conexión" en Configuración
+        'prueba' => '/api/system/get_olts',
     ],
 
     /*

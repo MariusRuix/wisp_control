@@ -9,6 +9,7 @@ enum EstadoAccion: string
     case EnCola = 'en_cola';
     case Exito = 'exito';
     case Fallido = 'fallido';
+    case Anulado = 'anulado';
 
     public function etiqueta(): string
     {
@@ -16,6 +17,7 @@ enum EstadoAccion: string
             self::EnCola => 'En cola',
             self::Exito => 'Aplicado',
             self::Fallido => 'Falló',
+            self::Anulado => 'Anulado',
         };
     }
 
@@ -25,6 +27,7 @@ enum EstadoAccion: string
             self::EnCola => 'bg-amber-100 text-amber-800',
             self::Exito => 'bg-emerald-100 text-emerald-800',
             self::Fallido => 'bg-red-100 text-red-800',
+            self::Anulado => 'bg-slate-100 text-slate-600',
         };
     }
 }

@@ -13,6 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         // Cloudflare / proxy inverso en producción
         $middleware->trustProxies(at: '*');
+        $middleware->web(append: [\App\Http\Middleware\SoloUsuariosActivos::class]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

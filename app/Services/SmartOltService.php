@@ -16,24 +16,28 @@ use Illuminate\Support\Facades\Http;
  */
 final class SmartOltService
 {
+    public function __construct(private readonly ConfiguracionSmartOlt $cfg)
+    {
+    }
+
     private function cliente(): PendingRequest
     {
-        $subdominio = (string) config('smartolt.subdomain');
-        $token = (string) config('smartolt.token');
+        $subdominio = $this->cfg->subdominio();
+        $token = $this->cfg->token();
 
         if ($subdominio === '' || $token === '') {
-            throw new SmartOltException('Falta SMARTOLT_SUBDOMAIN o SMARTOLT_TOKEN en el .env');
+            throw new SmartOltException('Falta configurar SmartOLT: subdominio y token (Configuración › SmartOLT o .env).');
         }
 
         return Http::baseUrl("https://{$subdominio}.smartolt.com")
             ->withHeaders(['X-Token' => $token])
             ->acceptJson()
-            ->timeout((int) config('smartolt.timeout', 30));
+            ->timeout($this->cfg->timeout());
     }
 
     private function ruta(string $clave, ?string $id = null): string
     {
-        $ruta = (string) config("smartolt.endpoints.{$clave}");
+        $ruta = $this->cfg->ruta($clave);
 
         return $id === null ? $ruta : str_replace('{id}', rawurlencode($id), $ruta);
     }
@@ -56,7 +60,7 @@ final class SmartOltService
     public function deshabilitarVarias(array $externalIds): array
     {
         return $this->post($this->ruta('bulk_disable'), [
-            (string) config('smartolt.bulk_field') => implode(',', $externalIds),
+            $this->cfg->campoBulk() => implode(',', $externalIds),
         ]);
     }
 
@@ -66,7 +70,7 @@ final class SmartOltService
     public function habilitarVarias(array $externalIds): array
     {
         return $this->post($this->ruta('bulk_enable'), [
-            (string) config('smartolt.bulk_field') => implode(',', $externalIds),
+            $this->cfg->campoBulk() => implode(',', $externalIds),
         ]);
     }
 
@@ -87,6 +91,22 @@ final class SmartOltService
     public function estadosOnus(array $filtros = []): array
     {
         return $this->get($this->ruta('all_statuses'), $filtros);
+    }
+
+    /**
+     * Llamada ligera para comprobar subdominio y token (lista de OLTs).
+     *
+     * @return array{olts: int, ms: int}
+     */
+    public function probarConexion(): array
+    {
+        $inicio = microtime(true);
+        $json = $this->get($this->ruta('prueba'));
+
+        return [
+            'olts' => is_array($json['response'] ?? null) ? count($json['response']) : 0,
+            'ms' => (int) round((microtime(true) - $inicio) * 1000),
+        ];
     }
 
     private function post(string $ruta, array $campos = []): array

@@ -20,12 +20,14 @@ final class ProgramadorCortes
 {
     /**
      * @param  list<int>  $onuIds
+     * @param  bool  $automatica  true = la generó el sistema (corte/reconexión por cobranza)
      * @return int número de acciones encoladas
      */
-    public function programar(array $onuIds, TipoAccion $tipo, ?User $usuario, ?string $motivo = null): int
+    public function programar(array $onuIds, TipoAccion $tipo, ?User $usuario, ?string $motivo = null, bool $automatica = false): int
     {
         $onus = Onu::query()
             ->whereKey($onuIds)
+            ->whereNull('eliminada_en') // ya no existen en SmartOLT: la orden fallaría
             // no duplicar si ya hay una acción en cola para esa ONU
             ->whereDoesntHave('acciones', fn ($q) => $q->where('estado', EstadoAccion::EnCola->value))
             ->get();
@@ -40,6 +42,7 @@ final class ProgramadorCortes
             'tipo' => $tipo,
             'estado' => EstadoAccion::EnCola,
             'motivo' => $motivo,
+            'automatica' => $automatica,
         ])->id)->all());
 
         foreach (array_chunk($accionIds, (int) config('smartolt.bulk_chunk', 50)) as $lote) {
